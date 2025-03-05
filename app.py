@@ -35,19 +35,27 @@ def handle_message(event):
     
     client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
 
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "你是一個程式及數學高手"},
-            {
-                "role": "user",
-                "content": user_message
-            }
-        ]
-    )
-
-    reply_message = completion.choices[0].message.content
-
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "你是一個程式及數學高手"},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        reply_message = completion.choices[0].message.content
+        print(f"OpenAI 回應: {reply_message}")  # 查看 OpenAI 回應
+        
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply_message)
+        )
+    except Exception as e:
+        print(f"OpenAI API 呼叫錯誤: {e}")
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="抱歉，出現錯誤，請稍後再試。")
+        )
 
     
     line_bot_api.reply_message(
