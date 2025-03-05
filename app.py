@@ -38,7 +38,7 @@ def handle_message(event):
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "你是一個程式及數學高手"},
             {
                 "role": "user",
                 "content": user_message
