@@ -1,40 +1,21 @@
-from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-import os
-from openai import OpenAI
+from threading import Thread
 
-app = Flask(__name__)
-
-# 設定 LINE Channel Access Token 和 Secret
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
-@app.route('/')
-def home():
-    return "LINE BOT 首頁"
-
-@app.route("/callback", methods=["POST"])
-def callback():
-    signature = request.headers["X-Line-Signature"]
-    body = request.get_data(as_text=True)
-
+def reply_async(reply_token, reply_message):
     try:
-        line_handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-
-    return "OK"
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_message))
+    except Exception as e:
+        print(f"LINE API 回應錯誤: {e}")
 
 @line_handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
+    reply_token = event.reply_token
     
-    client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
+    # Webhook 立即回應 OK
+    Thread(target=process_and_reply, args=(reply_token, user_message)).start()
 
+def process_and_reply(reply_token, user_message):
+    client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
     try:
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -44,24 +25,8 @@ def handle_message(event):
             ]
         )
         reply_message = completion.choices[0].message.content
-        print(f"OpenAI 回應: {reply_message}")  # 查看 OpenAI 回應
-        
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=reply_message)
-        )
     except Exception as e:
         print(f"OpenAI API 呼叫錯誤: {e}")
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="抱歉，出現錯誤，請稍後再試。")
-        )
+        reply_message = "抱歉，出現錯誤，請稍後再試。"
 
-    
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
-    )
-
-if __name__ == "__main__":
-    app.run(port=8000)
+    reply_async(reply_token, reply_message)
