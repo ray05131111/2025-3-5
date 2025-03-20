@@ -62,6 +62,42 @@ def handle_message(event):
         event.reply_token,
         TextSendMessage(text=reply_message)
     )
+# 處理圖片訊息
+@handler.add(MessageEvent, message=ImageMessage)
+def handle_image_message(event):
+    image_id = event.message.id  # 獲取圖片 ID
+    image_content = line_bot_api.get_message_content(image_id)  # 下載圖片
+
+    image_path = f"images/{image_id}.jpg"
+    os.makedirs("images", exist_ok=True)  # 確保 images 資料夾存在
+
+    # 儲存圖片
+    with open(image_path, "wb") as f:
+        for chunk in image_content.iter_content():
+            f.write(chunk)
+
+    print(f"圖片已儲存：{image_path}")
+
+    # 使用 OpenAI GPT-4o 解析圖片
+    with open(image_path, "rb") as f:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "你是一個聰明的 AI 助理，請根據圖片內容給出簡單的描述"},
+            ],
+            images=[f]  # 傳送圖片給 GPT-4o
+        )
+
+    # 取得 AI 解析的結果
+    ai_response = response.choices[0].message.content
+
+    # 回覆使用者
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=f"我看到的內容是：{ai_response}")
+    )
+
+    print(f"AI 回覆：{ai_response}")
 
 if __name__ == "__main__":
     app.run(port=8000)
