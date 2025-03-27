@@ -4,6 +4,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 import os
 import base64
+import requests
 from io import BytesIO
 from openai import OpenAI
 from flask import send_from_directory
@@ -76,23 +77,25 @@ def handle_image_message(event):
     image_id = event.message.id
     image_content = line_bot_api.get_message_content(image_id)
 
-    # 讀取圖片並轉為 base64
+    # 下載圖片到本地（或者上傳至服務）
     image_bytes = BytesIO(image_content.content)
-    image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
-    print("✅ 圖片已轉換為 base64，準備傳送至 OpenAI", flush=True)
+    # 上傳圖片至可公開存取的伺服器（這裡假設上傳到你的服務）
+    image_url = upload_image_to_service(image_bytes)
+
+    print(f"✅ 圖片已上傳，URL: {image_url}", flush=True)
 
     # 生成圖片描述或其他相關訊息，這裡的消息是基於圖片的描述
-    user_message = f"請分析這張圖片的西洋棋局勢。"
+    user_message = f"請分析這張圖片的西洋棋局勢。圖片連結：{image_url}"
 
     client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
 
     try:
-        # 用 OpenAI 的圖片生成模型來處理這段 base64 圖片，並獲取結果
+        # 用 OpenAI 的圖片生成模型來處理圖片的 URL，並獲取結果
         completion = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "你是一位國際象棋專家，請根據圖片分析棋局並給出建議。"},
+                {"role": "system", "content": "你是一位國際象棋專家，請根據圖片連結分析棋局並給出建議。"},
                 {"role": "user", "content": user_message}
             ]
         )
@@ -112,6 +115,12 @@ def handle_image_message(event):
             TextSendMessage(text="無法處理圖片，請稍後再試。")
         )
 
+# 假設你有一個圖片上傳的函式，這個函式會把圖片上傳到你的伺服器或雲端儲存
+def upload_image_to_service(image_bytes):
+    # 此處是上傳圖片的示範代碼
+    # 你需要根據你的服務來實現圖片上傳的邏輯，並回傳圖片 URL
+    # 例如，假設你將圖片上傳到 AWS S3 或其他雲端儲存服務
+    return "https://your-server.com/path/to/image.jpg"  # 回傳圖片 URL
 
 
 
