@@ -25,13 +25,16 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
-
+    
+    print(f"📩 收到 LINE Webhook 請求：{body}")  # Debug 訊息
+    
     try:
         line_handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
 
     return "OK"
+
 
 # 處理文字訊息（西洋棋建議）
 @line_handler.add(MessageEvent, message=TextMessage)
