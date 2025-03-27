@@ -75,7 +75,7 @@ def handle_image_message(event):
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Analyze the chessboard and suggest the best move."}
+                    {"role": "system", "content": "你是西洋棋特級大師，根據圖片或訊息用繁體中文給予建議"}
                 ],
                 images=[f]  # 傳送圖片給 GPT-4o 進行分析
             )
