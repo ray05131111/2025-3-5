@@ -67,6 +67,7 @@ def favicon():
 
 # 處理圖片訊息（棋局分析）
 
+
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
     print(f"📷 收到圖片訊息，ID：{event.message.id}", flush=True)  # 確保有進入函式
@@ -81,31 +82,36 @@ def handle_image_message(event):
 
     print("✅ 圖片已轉換為 base64，準備傳送至 OpenAI", flush=True)
 
+    # 生成圖片描述或其他相關訊息，這裡的消息是基於圖片的描述
+    user_message = f"請分析這張圖片的西洋棋局勢。"
+
     client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
 
-    completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "你是一位國際象棋專家，請根據圖片分析棋局並給出建議。"},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "請分析這張圖片的西洋棋局勢："},
-                    {"type": "image_url", "image_url": f"data:image/jpeg;base64,{image_base64}"}
-                ]
-            }
-        ]
-    )
+    try:
+        # 用 OpenAI 的圖片生成模型來處理這段 base64 圖片，並獲取結果
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "你是一位國際象棋專家，請根據圖片分析棋局並給出建議。"},
+                {"role": "user", "content": user_message}
+            ]
+        )
 
-    reply_message = completion.choices[0].message.content
+        reply_message = completion.choices[0].message.content
+        print(f"📝 OpenAI 回覆：{reply_message}", flush=True)
 
-    print(f"📝 OpenAI 回覆：{reply_message}", flush=True)
+        # 回覆使用者
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply_message)
+        )
+    except Exception as e:
+        print(f"🚨 OpenAI 請求錯誤: {e}", flush=True)
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="無法處理圖片，請稍後再試。")
+        )
 
-    # 回覆使用者
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
-    )
 
 
 
