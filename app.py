@@ -1,7 +1,7 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 import os
 from openai import OpenAI
 
@@ -10,12 +10,15 @@ app = Flask(__name__)
 # 設定 LINE Channel Access Token 和 Secret
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+OPENAI_KEY = os.getenv("OPENAI_KEY")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
+client = OpenAI(api_key=OPENAI_KEY)
+
 @app.route('/')
 def home():
-    return "LINE BOT 首頁"
+    return "LINE BOT 正在運行"
 
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -29,30 +32,61 @@ def callback():
 
     return "OK"
 
+# 處理文字訊息（西洋棋建議）
 @line_handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
+def handle_text_message(event):
     user_message = event.message.text
     
-    client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
-
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": user_message
-            }
-        ]
-    )
-
-    reply_message = completion.choices[0].message.content
-
-
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a chess expert who provides strategic advice."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        reply_message = completion.choices[0].message.content
+    except Exception as e:
+        print(f"OpenAI API 錯誤: {e}")
+        reply_message = "抱歉，我目前無法提供西洋棋建議，請稍後再試。"
     
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text=reply_message)
+    )
+
+# 處理圖片訊息（棋局分析）
+@line_handler.add(MessageEvent, message=ImageMessage)
+def handle_image_message(event):
+    image_id = event.message.id
+    image_content = line_bot_api.get_message_content(image_id)
+    
+    image_path = f"images/{image_id}.jpg"
+    os.makedirs("images", exist_ok=True)
+    
+    with open(image_path, "wb") as f:
+        for chunk in image_content.iter_content():
+            f.write(chunk)
+    
+    print(f"圖片已儲存：{image_path}")
+    
+    try:
+        with open(image_path, "rb") as f:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "Analyze the chessboard and suggest the best move."}
+                ],
+                images=[f]  # 傳送圖片給 GPT-4o 進行分析
+            )
+        ai_response = response.choices[0].message.content
+    except Exception as e:
+        print(f"OpenAI API 錯誤: {e}")
+        ai_response = "抱歉，我無法分析這張棋局圖片。"
+    
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=f"棋局分析結果：{ai_response}")
     )
 
 if __name__ == "__main__":
