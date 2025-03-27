@@ -9,13 +9,10 @@ from openai import OpenAI
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_SECRET = os.getenv("LINE_SECRET")
 OPENAI_KEY = os.getenv("OPENAI_KEY")
-print(f"LINE_ACCESS_TOKEN: {LINE_ACCESS_TOKEN}")
-print(f"LINE_SECRET: {LINE_SECRET}")
-print(f"OPENAI_KEY: {OPENAI_KEY}")
 
 # 初始化 LINE 和 OpenAI
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_SECRET)
+h = WebhookHandler(LINE_SECRET)
 client = OpenAI(api_key=OPENAI_KEY)
 
 # 啟動 Flask 伺服器
@@ -31,7 +28,7 @@ def callback():
     body = request.get_data(as_text=True)
 
     try:
-        handler.handle(body, signature)
+        h.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
 
