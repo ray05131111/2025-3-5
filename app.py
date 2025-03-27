@@ -4,6 +4,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 import os
 from openai import OpenAI
+from flask import send_from_directory
 
 app = Flask(__name__)
 
@@ -54,6 +55,10 @@ def handle_text_message(event):
         event.reply_token,
         TextSendMessage(text=reply_message)
     )
+
+@app.route('/favicon.png')
+def favicon():
+    return send_from_directory('static', 'favicon.png', mimetype='image/png')
 
 # 處理圖片訊息（棋局分析）
 @line_handler.add(MessageEvent, message=ImageMessage)
