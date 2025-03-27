@@ -66,17 +66,20 @@ def favicon():
 # 處理圖片訊息（棋局分析）
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
-    image_id = event.message.id
-    image_content = line_bot_api.get_message_content(image_id)
-    
+    print(f"📷 收到圖片訊息，ID：{event.message.id}", flush=True)  # 這行應該會在 log 中出現
+
+    image_id = event.message.id  # 取得圖片 ID
+    image_content = line_bot_api.get_message_content(image_id)  # 下載圖片
+
     image_path = f"images/{image_id}.jpg"
-    os.makedirs("images", exist_ok=True)
-    
+    os.makedirs("images", exist_ok=True)  # 確保 images 資料夾存在
+
+    # 儲存圖片
     with open(image_path, "wb") as f:
         for chunk in image_content.iter_content():
             f.write(chunk)
-    
-    print(f"圖片已儲存：{image_path}")
+
+    print(f"✅ 圖片已儲存至 {image_path}", flush=True)
     
     try:
         with open(image_path, "rb") as f:
