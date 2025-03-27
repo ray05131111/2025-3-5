@@ -3,6 +3,8 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 import os
+import base64
+from io import BytesIO
 from openai import OpenAI
 from flask import send_from_directory
 
@@ -64,41 +66,47 @@ def favicon():
     return send_from_directory('static', 'favicon.png', mimetype='image/png')
 
 # 處理圖片訊息（棋局分析）
+
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
-    print(f"📷 收到圖片訊息，ID：{event.message.id}", flush=True)  # 這行應該會在 log 中出現
+    print(f"📷 收到圖片訊息，ID：{event.message.id}", flush=True)  # 確保有進入函式
 
-    image_id = event.message.id  # 取得圖片 ID
-    image_content = line_bot_api.get_message_content(image_id)  # 下載圖片
+    # 取得圖片內容
+    image_id = event.message.id
+    image_content = line_bot_api.get_message_content(image_id)
 
-    image_path = f"images/{image_id}.jpg"
-    os.makedirs("images", exist_ok=True)  # 確保 images 資料夾存在
+    # 讀取圖片並轉為 base64
+    image_bytes = BytesIO(image_content.content)
+    image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
-    # 儲存圖片
-    with open(image_path, "wb") as f:
-        for chunk in image_content.iter_content():
-            f.write(chunk)
+    print("✅ 圖片已轉換為 base64，準備傳送至 OpenAI", flush=True)
 
-    print(f"✅ 圖片已儲存至 {image_path}", flush=True)
-    
-    try:
-        with open(image_path, "rb") as f:
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "你是西洋棋特級大師，根據圖片或訊息用繁體中文給予建議"}
-                ],
-                images=[f]  # 傳送圖片給 GPT-4o 進行分析
-            )
-        ai_response = response.choices[0].message.content
-    except Exception as e:
-        print(f"OpenAI API 錯誤: {e}")
-        ai_response = "抱歉，我無法分析這張棋局圖片。"
-    
+    client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
+
+    completion = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "你是一位國際象棋專家，請根據圖片分析棋局並給出建議。"},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "請分析這張圖片的西洋棋局勢："},
+                    {"type": "image_url", "image_url": f"data:image/jpeg;base64,{image_base64}"}
+                ]
+            }
+        ]
+    )
+
+    reply_message = completion.choices[0].message.content
+
+    print(f"📝 OpenAI 回覆：{reply_message}", flush=True)
+
+    # 回覆使用者
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(text=f"棋局分析結果：{ai_response}")
+        TextSendMessage(text=reply_message)
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=8000)
