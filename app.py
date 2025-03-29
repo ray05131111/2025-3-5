@@ -7,7 +7,6 @@ import base64
 import requests
 from io import BytesIO
 from openai import OpenAI
-import openai
 from flask import send_from_directory
 
 app = Flask(__name__)
