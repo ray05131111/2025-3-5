@@ -38,7 +38,18 @@ def callback():
 
     return "OK"
 
-
+# 取得圖片的 Base64 編碼
+def get_image_base64(image_id):
+    url = f"https://api-data.line.me/v2/bot/message/{image_id}/content"
+    headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}  # 你的 LINE Channel Token
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        return base64.b64encode(response.content).decode("utf-8")
+    else:
+        print(f"❌ 無法下載圖片，錯誤碼: {response.status_code}")
+        return None
+        
 # 處理文字訊息（西洋棋建議）
 @line_handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
@@ -71,49 +82,41 @@ def favicon():
 
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
-    print(f"📷 收到圖片訊息，ID：{event.message.id}", flush=True)  # 確保有進入函式
+    image_id = event.message.id  # 取得圖片 ID
+    print(f"📷 收到圖片訊息，ID：{image_id}")
 
-    # 取得圖片內容
-    image_id = event.message.id
-    image_content = line_bot_api.get_message_content(image_id)
+    # 取得圖片的 base64 編碼
+    image_base64 = get_image_base64(image_id)
+    
+    if not image_base64:
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 圖片處理失敗，請再試一次"))
+        return
+    
+    print("✅ 圖片已轉換為 base64，準備傳送至 OpenAI")
 
-    # 下載圖片到本地（或者上傳至服務）
-    image_bytes = BytesIO(image_content.content)
-
-    # 上傳圖片至可公開存取的伺服器（這裡假設上傳到你的服務）
-    image_url = upload_image_to_service(image_bytes)
-
-    print(f"✅ 圖片已上傳，URL: {image_url}", flush=True)
-
-    # 生成圖片描述或其他相關訊息，這裡的消息是基於圖片的描述
-    user_message = f"請分析這張圖片的西洋棋局勢。圖片連結：{image_url}"
-
-    client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
-
+    # 發送到 OpenAI API
     try:
-        # 用 OpenAI 的圖片生成模型來處理圖片的 URL，並獲取結果
         completion = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "你是一位國際象棋專家，請根據圖片連結分析棋局並給出建議。"},
-                {"role": "user", "content": user_message}
+                {"role": "system", "content": "你是一個國際象棋分析師"},
+                {"role": "user", "content": [
+                    {"type": "text", "text": "請幫我分析這個棋局"},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64," + image_base64}}
+                ]}
             ]
         )
 
-        reply_message = completion.choices[0].message.content
-        print(f"📝 OpenAI 回覆：{reply_message}", flush=True)
+        response_text = completion.choices[0].message.content
+        print(f"📝 OpenAI 回覆：{response_text}")
 
-        # 回覆使用者
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=reply_message)
-        )
+        # 回應給 LINE 使用者
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_text))
+
     except Exception as e:
-        print(f"🚨 OpenAI 請求錯誤: {e}", flush=True)
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="無法處理圖片，請稍後再試。")
-        )
+        print(f"❌ OpenAI API 錯誤：{e}")
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ AI 分析失敗，請稍後再試"))
+
 
 # 假設你有一個圖片上傳的函式，這個函式會把圖片上傳到你的伺服器或雲端儲存
 def upload_image_to_service(image_bytes):
