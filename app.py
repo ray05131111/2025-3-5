@@ -1,9 +1,10 @@
+import os
+import openai
+import base64
+import requests
 from flask import Flask, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, ImageMessage, TextSendMessage
-import base64
-import requests
-from openai import OpenAI  # ✅ 新版 OpenAI SDK
 
 app = Flask(__name__)
 
@@ -11,23 +12,24 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_KEY = os.getenv("OPENAI_KEY")
-print(openai.__version__)
+
+print(f"🔹 OpenAI 版本: {openai.__version__}")
+
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
-client = OpenAI(api_key=OPENAI_KEY)
+client = openai.OpenAI(api_key=OPENAI_KEY)  # ✅ 修正 OpenAI 調用方式
 
 @app.route("/callback", methods=["POST"])
 def callback():
     body = request.get_data(as_text=True)
-    handler.handle(body, request.headers["X-Line-Signature"])
+    line_handler.handle(body, request.headers["X-Line-Signature"])  # ✅ 修正 handler 變數名稱
     return "OK"
 
 # 處理圖片訊息
-@handler.add(MessageEvent, message=ImageMessage)
+@line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
     try:
         message_id = event.message.id
-        # 下載圖
         headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
         url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
         response = requests.get(url, headers=headers)
@@ -36,16 +38,14 @@ def handle_image_message(event):
             image_data = response.content
             image_base64 = base64.b64encode(image_data).decode("utf-8")
     
-            # ✅ 使用新版 OpenAI API
+            # ✅ 修正 OpenAI API 請求
             response = client.chat.completions.create(
                 model="gpt-4-turbo",
                 messages=[
                     {"role": "system", "content": "你是一個能分析圖片的 AI"},
-                    {"role": "user", "content": [
-                        {"type": "text", "text": "請分析這張圖片"},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_base64}"}}
-                    ]}
-                ]
+                    {"role": "user", "content": "請分析這張圖片"},
+                ],
+                image={"base64": image_base64, "mime_type": "image/png"}  # ✅ 正確傳送 base64 圖片
             )
     
             reply_text = response.choices[0].message.content  # ✅ 確保使用新版的 API 回應格式
@@ -55,6 +55,7 @@ def handle_image_message(event):
     except Exception as e:
         reply_text = f"❌ OpenAI API 錯誤: {str(e)}"
         print(reply_text)
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
 
 if __name__ == "__main__":
     app.run()
