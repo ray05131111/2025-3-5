@@ -22,9 +22,8 @@ client = openai.OpenAI(api_key=OPENAI_KEY)  # ✅ 修正 OpenAI 調用方式
 @app.route("/callback", methods=["POST"])
 def callback():
     body = request.get_data(as_text=True)
-    line_handler.handle(body, request.headers["X-Line-Signature"])  # ✅ 修正 handler 變數名稱
+    line_handler.handle(body, request.headers["X-Line-Signature"])
     return "OK"
-
 # 處理圖片訊息
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
@@ -58,4 +57,5 @@ def handle_image_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
 
 if __name__ == "__main__":
-    app.run()
+    app.run(port=5000)  # 確保這裡的 port 是正確的
+
