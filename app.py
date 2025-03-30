@@ -24,7 +24,7 @@ def callback():
 
 # 處理圖片訊息
 @handler.add(MessageEvent, message=ImageMessage)
-def handle_image_message(event
+def handle_image_message(event):
     try:
         message_id = event.message.id
         # 下載圖
