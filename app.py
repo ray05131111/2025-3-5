@@ -57,5 +57,6 @@ def handle_image_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
 
 if __name__ == "__main__":
-    app.run(port=5000)  # 確保這裡的 port 是正確的
+    import os
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
