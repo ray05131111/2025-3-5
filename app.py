@@ -1,68 +1,3 @@
-import os
-import tempfile
-import logging
-from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
-from google.cloud import vision
-
-# 設定日誌
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = Flask(__name__)
-
-# 設定 LINE Channel Access Token 和 Secret
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-OPENAI_API_KEY = os.getenv("OPENAI_KEY")
-
-# 設定 Google Cloud 憑證金鑰
-google_credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-if google_credentials_path:
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_path
-else:
-    logger.error("Google Cloud credentials path not set!")
-
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-@app.route('/')
-def home():
-    return "LINE BOT 首頁"
-
-@app.route("/callback", methods=["POST"])
-def callback():
-    signature = request.headers["X-Line-Signature"]
-    body = request.get_data(as_text=True)
-
-    try:
-        line_handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-
-    return "OK"
-
-@line_handler.add(MessageEvent, message=TextMessage)
-def handle_text_message(event):
-    user_message = event.message.text
-
-    client = OpenAI(api_key=OPENAI_API_KEY)
-
-    completion = client.chat.completions.create(
-        model="gpt-4",  # 使用 GPT-4 模型
-        messages=[{"role": "system", "content": "You are a helpful assistant."},
-                  {"role": "user", "content": user_message}]
-    )
-
-    reply_message = completion.choices[0].message.content
-
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
-    )
-
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
     try:
@@ -78,7 +13,7 @@ def handle_image_message(event):
         with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
             for chunk in image_content.iter_content():
                 temp_file.write(chunk)
-            
+
             # 取得臨時檔案的路徑
             image_path = temp_file.name
 
@@ -92,6 +27,10 @@ def handle_image_message(event):
 
         image = vision.Image(content=content)
         response = client.label_detection(image=image)
+
+        # **新增這行來檢查 API 回應**
+        logger.info(f"Vision API Response: {response}")
+        print(response)  # 如果在本地運行，這行會顯示完整的 API 回應
 
         # 取得圖片的標籤
         labels = response.label_annotations
@@ -118,6 +57,3 @@ def handle_image_message(event):
             event.reply_token,
             TextSendMessage(text=f"Sorry, there was an error processing your image: {str(e)}")
         )
-
-if __name__ == "__main__":
-    app.run(port=8000)
