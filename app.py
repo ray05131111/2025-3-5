@@ -3,6 +3,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 import os
+import tempfile
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -55,16 +56,19 @@ def handle_text_message(event):
         TextSendMessage(text=reply_message)
     )
 
+
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
     message_id = event.message.id
     image_content = line_bot_api.get_message_content(message_id)
-    image_path = f"temp_{message_id}.jpg"
 
-    # 儲存圖片
-    with open(image_path, "wb") as f:
+    # 使用 tempfile 創建臨時檔案來儲存圖片
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
         for chunk in image_content.iter_content():
-            f.write(chunk)
+            temp_file.write(chunk)
+        
+        # 取得臨時檔案的路徑
+        image_path = temp_file.name
 
     # 使用 OpenAI API 分析圖片
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -82,7 +86,8 @@ def handle_image_message(event):
         TextSendMessage(text=reply_message)
     )
 
-    os.remove(image_path)  # 清理暫存圖片
+    os.remove(image_path)  # 清理臨時圖片
+
 
 if __name__ == "__main__":
     app.run(port=8000)
