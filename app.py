@@ -91,10 +91,14 @@ def handle_image_message(event):
                 image=image_file
             )
 
-        logger.info("OpenAI response received")
+        logger.info(f"OpenAI response: {response}")
 
         # 假設 API 回應包含圖片的描述
-        reply_message = response['data'][0]['description']
+        if 'data' in response and len(response['data']) > 0:
+            reply_message = response['data'][0].get('description', 'No description available')
+        else:
+            reply_message = "Sorry, I couldn't process the image."
+
         logger.info(f"Reply message: {reply_message}")
 
         # 回傳圖片描述
@@ -111,7 +115,7 @@ def handle_image_message(event):
         logger.error(f"Error processing image: {e}")
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="Sorry, there was an error processing your image.")
+            TextSendMessage(text=f"Sorry, there was an error processing your image: {str(e)}")
         )
 
 if __name__ == "__main__":
