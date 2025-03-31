@@ -1,12 +1,11 @@
-import tempfile
 import os
+import tempfile
 import logging
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 from google.cloud import vision
-from google.cloud.vision import types
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +17,13 @@ app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_KEY")
+
+# 設定 Google Cloud 憑證金鑰
+google_credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+if google_credentials_path:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials_path
+else:
+    logger.error("Google Cloud credentials path not set!")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 line_handler = WebhookHandler(LINE_CHANNEL_SECRET)
