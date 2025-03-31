@@ -1,9 +1,9 @@
+import tempfile
+import os
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
-import os
-import tempfile
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -35,7 +35,7 @@ def callback():
 @line_handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     user_message = event.message.text
-    
+
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     completion = client.chat.completions.create(
@@ -56,7 +56,6 @@ def handle_text_message(event):
         TextSendMessage(text=reply_message)
     )
 
-
 @line_handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
     message_id = event.message.id
@@ -74,6 +73,7 @@ def handle_image_message(event):
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     with open(image_path, "rb") as image_file:
+        # 假設 OpenAI 提供了圖片處理能力
         response = client.images.create(  # 使用 GPT-4 模型來處理圖片
             model="gpt-4",  # 使用 GPT-4 支援圖片分析
             image=image_file
@@ -87,7 +87,6 @@ def handle_image_message(event):
     )
 
     os.remove(image_path)  # 清理臨時圖片
-
 
 if __name__ == "__main__":
     app.run(port=8000)
