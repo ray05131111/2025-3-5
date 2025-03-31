@@ -5,7 +5,8 @@ from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
-from openai import OpenAI
+from google.cloud import vision
+from google.cloud.vision import types
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -45,13 +46,8 @@ def handle_text_message(event):
 
     completion = client.chat.completions.create(
         model="gpt-4",  # 使用 GPT-4 模型
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": user_message
-            }
-        ]
+        messages=[{"role": "system", "content": "You are a helpful assistant."},
+                  {"role": "user", "content": user_message}]
     )
 
     reply_message = completion.choices[0].message.content
@@ -82,26 +78,25 @@ def handle_image_message(event):
 
         logger.info(f"Image saved to {image_path}")
 
-        # 使用 OpenAI API 分析圖片
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        
+        # 使用 Google Vision API 進行圖片分析
+        client = vision.ImageAnnotatorClient()
+
         with open(image_path, "rb") as image_file:
-            response = client.images.create(  # 使用 GPT-4 模型來處理圖片
-                model="gpt-4",  # 使用 GPT-4 支援圖片分析
-                image=image_file
-            )
+            content = image_file.read()
 
-        logger.info(f"OpenAI response: {response}")
+        image = vision.Image(content=content)
+        response = client.label_detection(image=image)
 
-        # 假設 API 回應包含圖片的描述
-        if 'data' in response and len(response['data']) > 0:
-            reply_message = response['data'][0].get('description', 'No description available')
+        # 取得圖片的標籤
+        labels = response.label_annotations
+        if labels:
+            reply_message = "I found these labels in the image:\n" + "\n".join([label.description for label in labels])
         else:
-            reply_message = "Sorry, I couldn't process the image."
+            reply_message = "No labels found in the image."
 
         logger.info(f"Reply message: {reply_message}")
 
-        # 回傳圖片描述
+        # 回傳圖片分析結果
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=reply_message)
