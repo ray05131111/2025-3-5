@@ -91,9 +91,8 @@ def handle_image_message(event):
         with open(image_path, "rb") as image_file:
             content = image_file.read()
 
-        # 建立 Image 物件並設置內容
-        image = vision.Image()
-        image.content = content
+        # 建立 Image 物件並設置圖片內容
+        image = vision.Image(content=content)
 
         # 使用 label_detection 來進行圖片標籤識別
         response = client.label_detection(image=image)
@@ -132,6 +131,7 @@ def handle_image_message(event):
             event.reply_token,
             TextSendMessage(text=f"Sorry, there was an error processing your image: {str(e)}")
         )
+
 
 
 
