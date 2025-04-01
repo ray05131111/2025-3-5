@@ -6,7 +6,6 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 from google.cloud import vision
-from google.cloud.vision import types
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -88,15 +87,12 @@ def handle_image_message(event):
 
         logger.info(f"Image saved to {image_path}")
 
-        # 使用 Google Vision API 進行圖片分析
+        # 讀取圖片並直接傳遞給 Vision API
         with open(image_path, "rb") as image_file:
             content = image_file.read()
 
-        # 使用圖片內容創建 Image 物件
-        image = vision.Image(content=content)
-
-        # 使用 label_detection 來進行圖片標籤識別
-        response = client.label_detection(image=image)
+        # 直接調用 Vision API 進行標籤檢測
+        response = client.label_detection(image={'content': content})
 
         # 檢查 API 回應錯誤
         if response.error.message:
