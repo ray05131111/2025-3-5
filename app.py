@@ -75,13 +75,6 @@ def handle_image_message(event):
 
         # 從 LINE API 下載圖片內容
         image_content = line_bot_api.get_message_content(message_id)
-        if not image_content:
-            logger.error(f"No image content received for message_id: {message_id}")
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="Sorry, no image content received.")
-            )
-            return
         logger.info("Downloading image content...")
 
         # 使用 tempfile 創建臨時檔案來儲存圖片
@@ -98,9 +91,13 @@ def handle_image_message(event):
         with open(image_path, "rb") as image_file:
             content = image_file.read()
 
+        # 建立 Image 物件
         image = vision.Image(content=content)
+
+        # 使用 label_detection 來進行圖片標籤識別
         response = client.label_detection(image=image)
 
+        # 檢查 API 回應錯誤
         if response.error.message:
             logger.error(f"Google Vision API Error: {response.error.message}")
             line_bot_api.reply_message(
@@ -134,8 +131,7 @@ def handle_image_message(event):
             event.reply_token,
             TextSendMessage(text=f"Sorry, there was an error processing your image: {str(e)}")
         )
- TextSendMessage(text=f"Sorry, there was an error processing your image: {str(e)}")
-        )
+
 
 if __name__ == "__main__":
     app.run(port=8000)
