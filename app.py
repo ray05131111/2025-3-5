@@ -91,7 +91,7 @@ def handle_image_message(event):
         with open(image_path, "rb") as image_file:
             content = image_file.read()
 
-        # 建立 Image 物件並設置圖片內容
+        # 使用圖片內容創建 Image 物件
         image = vision.Image(content=content)
 
         # 使用 label_detection 來進行圖片標籤識別
