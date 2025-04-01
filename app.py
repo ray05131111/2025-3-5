@@ -6,6 +6,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, ImageMessage, TextSendMessage
 from google.cloud import vision
+from google.cloud.vision import types
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
