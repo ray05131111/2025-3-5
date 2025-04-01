@@ -126,12 +126,12 @@ def handle_image_message(event):
         logger.info("Temporary image file deleted")
 
     except Exception as e:
-        # 記錄錯誤並回傳錯誤訊息
         logger.error(f"Error processing image: {str(e)}")
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=f"Sorry, there was an error processing your image: {str(e)}")
         )
+
 
 
 
